@@ -97,7 +97,7 @@ async def downloadTV(ctx, show, *args):
             show += " " + str(x)
         #c.add_torrent(torrent_url, download_dir='/data/downloads/TV/')
         show = show.replace(" ", "+")
-        show = "http:/" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/thepiratebay/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=&q=" + str(show)
+        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/thepiratebay/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=&q=" + str(show)
         print(show)
         feed = feedparser.parse(show)
         msg= "Found the below torrents, select an option via reactions:"
