@@ -22,13 +22,14 @@ client = discord.Client()
 bot = commands.Bot(command_prefix='!', case_insensitive=True)
 
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
-config = configParserToDict('DiscordTorrentBot.cfg')
+config = configParserToDict(dir_path + '/DiscordTorrentBot.cfg')
 current_torrents = []
-transmission_settings = config['transmissionserver']
-jackett_settings = config['jackettserver']
-discord_settings = config['discordsettings']
-general_settings = config['general']
+transmission_settings = config['TransmissionServer']
+jackett_settings = config['JackettServer']
+discord_settings = config['DiscordSettings']
+general_settings = config['General']
 TVpath = general_settings['tvlocation']
 Animepath = general_settings['animelocation']
 Moviepath =  general_settings['movieslocation']
