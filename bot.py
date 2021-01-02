@@ -150,7 +150,7 @@ async def eta(ctx):
     for x in current_torrents:
         tor = c.get_torrent(x)
         if(tor.status != "stopped") :
-            msg+="```"+tor.id() + " : " + tor.format_eta() + "```"
+            msg+="```"+ str(tor.id) + " : " + tor.format_eta() + "```"
         else:
             current_torrents.remove(x)
     await ctx.send(msg)
