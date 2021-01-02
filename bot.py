@@ -38,6 +38,8 @@ Moviepath =  general_settings['movieslocation']
 emojis = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣"]
 
 jackett_APIkey = jackett_settings['apikey']
+tv_source = jackett_settings['tvtorrentsource']
+movie_source = jackett_settings['movietorrentsource']
 discord_bot_api= discord_settings['apikey']
 c = Client(host=transmission_settings['ip'], port=transmission_settings['port'], username=transmission_settings['username'], password=transmission_settings['password'])
  
@@ -91,7 +93,7 @@ async def downloadTV(ctx, show, *args):
             show += " " + str(x)
 
         show = show.replace(" ", "+")
-        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/thepiratebay/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=&q=" + str(show)
+        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexer/" + tv_source + "/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=&q=" + str(show)
         feed = feedparser.parse(show)
         msg= "Found the below torrents, select an option via reactions:"
         if(len(feed.entries) > 0):
@@ -119,7 +121,7 @@ async def downloadMovie(ctx, show, *args):
             show += " " + str(x)
         #c.add_torrent(torrent_url, download_dir='/data/downloads/TV/')
         show = show.replace(" ", "+")
-        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/thepiratebay/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=&q=" + str(show)
+        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/"+ movie_source +"/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=&q=" + str(show)
         
         feed = feedparser.parse(show)
         msg= "Found the below torrents, select an option via reactions:"
@@ -131,6 +133,7 @@ async def downloadMovie(ctx, show, *args):
             selection = await postMessageAndAwaitReaction(ctx, msg, min(5,len(feedsorted)))
                 
             if selection != 0:
+                print(feedsorted)
                 add_torrent(feedsorted[selection-1].link, Moviepath)
                 await ctx.send("Torrent " + str(feedsorted[selection-1].title) + " added")
             else:
@@ -173,7 +176,7 @@ async def postMessageAndAwaitReaction(ctx, msg, numberofemojis):
     return selection
    
 def add_torrent(torrent, path1):
-    print(path1)
+    print(torrent)
     torrent = c.add_torrent(torrent, download_dir=str(path1))
     current_torrents.append(torrent.id)
     
