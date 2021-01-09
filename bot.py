@@ -60,15 +60,16 @@ async def on_message(message):
         
 @bot.command(name='downloadAnime', help='Downloads a Anime torrent and adds to Plex.')
 async def downloadAnime(ctx, show, *args):
+    print(ctx.author)
     if ctx.channel.name == "plex-torrents":
         for x in args:
             show += " " + x
 
         show = show.replace(" ", "+")
         show = "https://nyaa.si/?page=rss&q=" + str(show) + "&c=1_2&f=0"
-        
         feed = feedparser.parse(show)
         msg= "Found the below torrents, select an option via reactions:"
+        
         if(len(feed.entries) > 0):
             feedsorted = sorted(feed.entries, key = lambda x:int(x.nyaa_seeders))
             feedsorted.reverse()
@@ -89,16 +90,17 @@ async def downloadAnime(ctx, show, *args):
         
 @bot.command(name='downloadTV', help='Downloads a TV torrent and adds to Plex.')
 async def downloadTV(ctx, show, *args):
+    print(ctx.author)
     if ctx.channel.name == "plex-torrents":
         for x in args:
             show += " " + str(x)
 
         show = show.replace(" ", "+")
-        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexer/" + tv_source + "/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=&q=" + str(show)
+        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/" + tv_source + "/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=5000&q=" + str(show)
         feed = feedparser.parse(show)
         msg= "Found the below torrents, select an option via reactions:"
+        
         if(len(feed.entries) > 0):
-            
             feedsorted = feed.entries
             for i in range(min(5,len(feedsorted))):
                 msg += "```" + str(i+1) +") " + str(feedsorted[i].title) + " | " + sizeof_fmt(int(feedsorted[i].size)) + "```"
@@ -117,15 +119,16 @@ async def downloadTV(ctx, show, *args):
         
 @bot.command(name='downloadMovie', help='Downloads a Movie torrent and adds to Plex.')
 async def downloadMovie(ctx, show, *args):
+    print(ctx.author)
     if ctx.channel.name == "plex-torrents":
         for x in args:
             show += " " + str(x)
-        #c.add_torrent(torrent_url, download_dir='/data/downloads/TV/')
+
         show = show.replace(" ", "+")
-        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/"+ movie_source +"/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=&q=" + str(show)
-        
+        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/"+ movie_source +"/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=2000&q=" + str(show)      
         feed = feedparser.parse(show)
         msg= "Found the below torrents, select an option via reactions:"
+        
         if(len(feed.entries) > 0):
             feedsorted = feed.entries
             for i in range(min(5,len(feedsorted))):
