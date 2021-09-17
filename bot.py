@@ -41,7 +41,6 @@ current_torrents = []
 discord_settings = config['DiscordSettings']
 general_settings = config['General']
 TVpath = general_settings['tvlocation']
-Animepath = general_settings['animelocation']
 Moviepath = general_settings['movieslocation']
 
 discord_bot_api = discord_settings['apikey']
@@ -69,23 +68,29 @@ async def on_message(message):
 async def downloadTV(ctx, show, *args):
     print(ctx.author)
     if ctx.channel.name == "plex-torrents":
+        print(show)
+        print(args)
         for x in args:
             show += " " + str(x)
 
+        print(show)
         tvLookup = sonarr.lookup_series(show)
-
+        print(tvLookup)
         for tv in tvLookup[0:3]:
-            embed = discord.Embed(title=tv['title'],
-                                  colour=discord.Colour(0x00AAFF),
-                                  url=str(tv["remotePoster"]),
-                                  description=tv["overview"])
-            embed.set_thumbnail(url=str(tv["remotePoster"]))
-            embed.set_author(name="TVShow")
-            embed.set_footer(text=tv['tvdbId'])
-            m = await ctx.send(embed=embed)
-            emoji = '\N{THUMBS UP SIGN}'
-            await m.add_reaction(emoji)
+            try:
+                embed = discord.Embed(title=tv['title'],
+                                      colour=discord.Colour(0x00AAFF),
+                                      url=str(tv["remotePoster"]),
+                                      description=tv["overview"])
+                embed.set_thumbnail(url=str(tv["remotePoster"]))
+                embed.set_author(name="TVShow")
+                embed.set_footer(text=tv['tvdbId'])
+                m = await ctx.send(embed=embed)
+                emoji = '\N{THUMBS UP SIGN}'
+                await m.add_reaction(emoji)
 
+            except KeyError:
+                print("no image, garbage show")
     else:
         await ctx.send("You must use the plex-torrents chat")
 
