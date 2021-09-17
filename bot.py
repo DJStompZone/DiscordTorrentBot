@@ -105,16 +105,19 @@ async def downloadMovie(ctx, show, *args):
         movieLookup = radarr.lookup_movie(show)
 
         for movie in movieLookup[0:3]:
-            embed = discord.Embed(title=movie['folder'],
-                                  colour=discord.Colour(0xFFAA00),
-                                  url=str(movie["images"][0]["remoteUrl"]),
-                                  description=movie["overview"])
-            embed.set_thumbnail(url=str(movie["images"][0]["remoteUrl"]))
-            embed.set_author(name="Movie")
-            embed.set_footer(text=movie['tmdbId'])
-            m = await ctx.send(embed=embed)
-            emoji = '\N{THUMBS UP SIGN}'
-            await m.add_reaction(emoji)
+            try:
+                embed = discord.Embed(title=movie['folder'],
+                                      colour=discord.Colour(0xFFAA00),
+                                      url=str(movie["images"][0]["remoteUrl"]),
+                                      description=movie["overview"])
+                embed.set_thumbnail(url=str(movie["images"][0]["remoteUrl"]))
+                embed.set_author(name="Movie")
+                embed.set_footer(text=movie['tmdbId'])
+                m = await ctx.send(embed=embed)
+                emoji = '\N{THUMBS UP SIGN}'
+                await m.add_reaction(emoji)
+            except KeyError:
+                print("no image, garbage movie")
 
     else:
         await ctx.send("You must use the plex-torrents chat")
