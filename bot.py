@@ -3,52 +3,58 @@ import asyncio
 import feedparser
 import os
 import configparser
-from transmission_rpc import Client
+from pyarr import RadarrAPI, SonarrAPI
+from discord_slash import SlashCommand
 from discord.ext import commands
+
 
 def configParserToDict(config_file_location):
     parser = configparser.ConfigParser()
-    parser.read('DiscordTorrentBot.cfg')    
+    parser.read(config_file_location)
     config_dict = {}
-    
+
     for element in parser.sections():
         config_dict[element] = {}
         for name, value in parser.items(element):
-            config_dict[element][name] = value    
-            
+            config_dict[element][name] = value
+
     return config_dict
 
-client = discord.Client()
-bot = commands.Bot(command_prefix='!', case_insensitive=True)
+
+client = discord.Client(intents=discord.Intents.all())
+slash = SlashCommand(client, sync_commands=True)
 
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-config = configParserToDict(dir_path + '/DiscordTorrentBot.cfg')
+config = configParserToDict(dir_path + '/discordarr.cfg')
+
+parser = configparser.ConfigParser()
+parser.read(dir_path + '/discordarr.cfg')
+radarr_host_url = parser.get('radarr', 'radarrhosturl')
+radarr_api_key = parser.get('radarr', 'radarrapikey')
+
+sonarr_host_url = parser.get('sonarr', 'sonarrhosturl')
+sonarr_api_key = parser.get('sonarr', 'sonarrapikey')
+
 current_torrents = []
-transmission_settings = config['TransmissionServer']
-jackett_settings = config['JackettServer']
 discord_settings = config['DiscordSettings']
 general_settings = config['General']
 TVpath = general_settings['tvlocation']
 Animepath = general_settings['animelocation']
-Moviepath =  general_settings['movieslocation']
+Moviepath = general_settings['movieslocation']
 
+discord_bot_api = discord_settings['apikey']
+bot_prefix = discord_settings['botprefix']
+bot = commands.Bot(command_prefix=bot_prefix, case_insensitive=True)
 
+radarr = RadarrAPI(radarr_host_url, radarr_api_key)
+sonarr = SonarrAPI(sonarr_host_url, sonarr_api_key)
 
-emojis = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣"]
-
-jackett_APIkey = jackett_settings['apikey']
-tv_source = jackett_settings['tvtorrentsource']
-movie_source = jackett_settings['movietorrentsource']
-discord_bot_api= discord_settings['apikey']
-c = Client(host=transmission_settings['ip'], port=transmission_settings['port'], username=transmission_settings['username'], password=transmission_settings['password'])
- 
-    
-    
 @client.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
+
 
 @client.event
 async def on_message(message):
@@ -57,37 +63,8 @@ async def on_message(message):
 
     if message.content.startswith('$hello'):
         await message.channel.send('Hello!')
-        
-@bot.command(name='downloadAnime', help='Downloads a Anime torrent and adds to Plex.')
-async def downloadAnime(ctx, show, *args):
-    print(ctx.author)
-    if ctx.channel.name == "plex-torrents":
-        for x in args:
-            show += " " + x
 
-        show = show.replace(" ", "+")
-        show = "https://nyaa.si/?page=rss&q=" + str(show) + "&c=1_2&f=0"
-        feed = feedparser.parse(show)
-        msg= "Found the below torrents, select an option via reactions:"
-        
-        if(len(feed.entries) > 0):
-            feedsorted = sorted(feed.entries, key = lambda x:int(x.nyaa_seeders))
-            feedsorted.reverse()
-            for i in range(min(5,len(feedsorted))):
-                msg += "```" + str(i+1) +") " + str(feedsorted[i].title) + " | " + str(feedsorted[i].nyaa_size) + " | seeders : " + str(feedsorted[i].nyaa_seeders) + "```"
-                           
-            selection = await postMessageAndAwaitReaction(ctx, msg, min(5,len(feedsorted)))
-            
-            if selection != 0:
-                add_torrent(feedsorted[selection-1].link, Animepath)
-                await ctx.send("Torrent " + str(feedsorted[selection-1].title) + " added")
-            else:
-                await ctx.send("Selection timed out, try again loser boy")
-        else:
-            await ctx.send("Nothing found, try again or ask your lord and savior Jon")
-    else:
-        await ctx.send("You must use the plex-torrents chat")
-        
+
 @bot.command(name='downloadTV', help='Downloads a TV torrent and adds to Plex.')
 async def downloadTV(ctx, show, *args):
     print(ctx.author)
@@ -95,28 +72,24 @@ async def downloadTV(ctx, show, *args):
         for x in args:
             show += " " + str(x)
 
-        show = show.replace(" ", "+")
-        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/" + tv_source + "/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=5000&q=" + str(show)
-        feed = feedparser.parse(show)
-        msg= "Found the below torrents, select an option via reactions:"
-        
-        if(len(feed.entries) > 0):
-            feedsorted = feed.entries
-            for i in range(min(5,len(feedsorted))):
-                msg += "```" + str(i+1) +") " + str(feedsorted[i].title) + " | " + sizeof_fmt(int(feedsorted[i].size)) + "```"
-                           
-            selection = await postMessageAndAwaitReaction(ctx, msg, min(5,len(feedsorted)))
-            
-            if selection != 0:
-                add_torrent(feedsorted[selection-1].link, TVpath)
-                await ctx.send("Torrent " + str(feedsorted[selection-1].title) + " added")
-            else:
-                await ctx.send("Selection timed out, try again loser boy")
-        else:
-            await ctx.send("Nothing found, try again or ask your lord and savior Jon")
+        tvLookup = sonarr.lookup_series(show)
+
+        for tv in tvLookup[0:3]:
+            embed = discord.Embed(title=tv['title'],
+                                  colour=discord.Colour(0x00AAFF),
+                                  url=str(tv["remotePoster"]),
+                                  description=tv["overview"])
+            embed.set_thumbnail(url=str(tv["remotePoster"]))
+            embed.set_author(name="TVShow")
+            embed.set_footer(text=tv['tvdbId'])
+            m = await ctx.send(embed=embed)
+            emoji = '\N{THUMBS UP SIGN}'
+            await m.add_reaction(emoji)
+
     else:
         await ctx.send("You must use the plex-torrents chat")
-        
+
+
 @bot.command(name='downloadMovie', help='Downloads a Movie torrent and adds to Plex.')
 async def downloadMovie(ctx, show, *args):
     print(ctx.author)
@@ -124,75 +97,66 @@ async def downloadMovie(ctx, show, *args):
         for x in args:
             show += " " + str(x)
 
-        show = show.replace(" ", "+")
-        show = "http://" + jackett_settings['ip'] + ":" + jackett_settings['port'] + "/api/v2.0/indexers/"+ movie_source +"/results/torznab/api?apikey=" + jackett_APIkey + "&t=search&cat=2000&q=" + str(show)      
-        feed = feedparser.parse(show)
-        msg= "Found the below torrents, select an option via reactions:"
-        
-        if(len(feed.entries) > 0):
-            feedsorted = feed.entries
-            for i in range(min(5,len(feedsorted))):
-                msg += "```" + str(i+1) +") " + str(feedsorted[i].title) + " | " + sizeof_fmt(int(feedsorted[i].size)) + "```"
-                           
-            selection = await postMessageAndAwaitReaction(ctx, msg, min(5,len(feedsorted)))
-                
-            if selection != 0:
-                print(feedsorted)
-                add_torrent(feedsorted[selection-1].link, Moviepath)
-                await ctx.send("Torrent " + str(feedsorted[selection-1].title) + " added")
-            else:
-                await ctx.send("Selection timed out, try again loser boy")
-        else:
-            await ctx.send("Nothing found, try again or ask your lord and savior Jon")
+        movieLookup = radarr.lookup_movie(show)
+
+        for movie in movieLookup[0:3]:
+            embed = discord.Embed(title=movie['folder'],
+                                  colour=discord.Colour(0xFFAA00),
+                                  url=str(movie["images"][0]["remoteUrl"]),
+                                  description=movie["overview"])
+            embed.set_thumbnail(url=str(movie["images"][0]["remoteUrl"]))
+            embed.set_author(name="Movie")
+            embed.set_footer(text=movie['tmdbId'])
+            m = await ctx.send(embed=embed)
+            emoji = '\N{THUMBS UP SIGN}'
+            await m.add_reaction(emoji)
+
     else:
         await ctx.send("You must use the plex-torrents chat")
-                
+
+
 @bot.command(name='eta', help='Shows ETA of current shows downloading.')
 async def eta(ctx):
-    msg = "Torrents remaining:"
-    for x in current_torrents:
-        tor = c.get_torrent(x)
-        if(tor.status != "stopped") :
-            msg+="```"+ tor.name + " : " + tor.format_eta() + "```"
-        else:
-            current_torrents.remove(x)
+    msg = "todo"
     await ctx.send(msg)
-        
-                
-async def postMessageAndAwaitReaction(ctx, msg, numberofemojis):
-    message = await ctx.send(msg)
-    
-    for i in range(numberofemojis):
-        await message.add_reaction(emojis[i])
-            
-    selection=0
-    for x in range(20):
-        message = await ctx.fetch_message(message.id)
-        x=1
-        for reaction in message.reactions:            
-            if reaction.count==2:
-                selection=x
-                break
-            x = x+1
-        if selection != 0:
-            break
-        await asyncio.sleep(1)    
-    return selection
-   
-def add_torrent(torrent, path1):
-    print(torrent)
-    torrent = c.add_torrent(torrent, download_dir=str(path1))
-    current_torrents.append(torrent.id)
-    
-    
-def sizeof_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
-
-    
 
 
-bot.run(discord_bot_api)   
+@bot.command(name='download', help='fuck you')
+async def download(ctx, show, *args):
+    content_type = str(show).lower()
+    print(content_type)
+    if content_type == "movie":
+        await downloadMovie(ctx, args[0], args[1:])
+    elif content_type == "tv" or content_type == "tvshow":
+        if str(args[0]).lower() == "show":
+            await downloadTV(ctx, args[1], args[2:])
+        else:
+            await downloadTV(ctx, args[0], args[1:])
+
+
+@bot.event
+async def on_reaction_add(reaction, user):
+    if user.id != bot.user.id and reaction.message.author.id == bot.user.id:
+        content_type = reaction.message.embeds[0].author.name
+
+        if content_type == "Movie":
+            movieID = int(reaction.message.embeds[0].footer.text)
+
+            print(radarr.add_movie(movieID, 6, Moviepath))
+
+            await bot.get_channel(reaction.message.channel.id).send(
+                reaction.message.embeds[0].title + " has been added to the download list")
+
+        elif content_type == "TVShow":
+            tvID = int(reaction.message.embeds[0].footer.text)
+
+            print(sonarr.add_series(tvID, 6, TVpath, search_for_missing_episodes=True))
+            await bot.get_channel(reaction.message.channel.id).send(
+                reaction.message.embeds[0].title + " has been added to the download list")
+
+
+@slash.slash(name='DownloadMovie', description="hi loser")
+async def slashDownloadMovie(ctx, show, *args):
+    await downloadMovie(ctx, show, *args)
+
+bot.run(discord_bot_api)
